@@ -1,0 +1,4 @@
+*.pyc
+/rtmbot.conf
+env
+/log.txt
