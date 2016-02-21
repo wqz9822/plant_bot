@@ -1,36 +1,24 @@
 import time
 import json
 from datetime import datetime, timedelta
-from eventRetriever import eventRetriever
 from camera import myCamera
-# from chatterbot import ChatBot
+from sensors import mySensors
 from slackclient import SlackClient
-from Adafruit_Thermal import *
-from bus import *
-import threading
 
 class myTalk(object):
     def __init__(self, mode, user, labot):
         self.mode = mode
         self.user = user
-        self.labot = labot
+        # self.labot = labot
         self.inDetail = False
 
     def startTalk(self):
         if self.mode == 'hi':
             self.outMsg = 'How are you feeling today?'
             self.choices = ['simple_smile','neutral_face']
-        elif self.mode == 'bus':
+        elif self.mode == 'sensor':
             self.outMsg = 'Please select:\n1. Go from codeLab\n2. Come to codeLab'
             self.choices = ['one','two']
-        elif self.mode == 'lecture':
-            self.eventsObj = eventRetriever()
-            self.event = self.eventsObj.getUpComingEvent()
-            attachment = self.lecture_attachment()
-            self.outMsg = 'Here is a lecture for you:'
-            outMsg = [self.outMsg, attachment]
-            self.choices = ['rewind','fast_forward','information_source','printer']
-            return outMsg, self.choices
         return self.outMsg, self.choices
 
     def continueTalk(self, inMsg):
@@ -42,82 +30,7 @@ class myTalk(object):
                 elif inMsg =='neutral_face':
                     self.outMsg = "Make yourself happier."
                     self.choices = []
-        elif self.mode =='bus':
-            if self.outMsg == 'Please select:\n1. Go from codeLab\n2. Come to codeLab':
-                if (inMsg == 'one') or ('1' in inMsg):
-                    self.outMsg = 'Where is your destination?'
-                    self.labot.isListening = True
-                    self.labot.talkHandler = self
-                    self.choices = []
-                elif (inMsg == 'two') or ('2' in inMsg):
-                    self.outMsg = 'Where are you now?'
-                    self.labot.isListening = True
-                    self.labot.talkHandler = self
-                    self.choices = []
-            elif self.outMsg == 'Where is your destination?':
-                message, attachment = self.getBusInfo(inMsg, 'fromCodeLab')
-            elif self.outMsg == 'Where are you now?':
-                message, attachment = self.getBusInfo(inMsg, 'toCodeLab')
-            elif self.outMsg == 'Do you want me to remind you?':
-                if inMsg == 'white_check_mark':
-                    arrivalTime = self.bus.arrivalTime
-                    now = datetime.now()
-                    if arrivalTime > now:
-                        eta = arrivalTime - now
-                        eta = int(eta.seconds)
-                        if eta > 180:
-                            self.outMsg = 'OK. I will remind you.'
-                            self.choices = []
-                            remindMsg = 'Your bus is coming! Prepare to go!'
-                            busReminder = threading.Timer(eta-180, \
-                                          self.labot.sendMessage, [remindMsg])
-                            busReminder.start()
-                    else:
-                        self.outMsg = 'Sorry, the bus has gone.'
-                        self.choices = []
-                elif inMsg == 'negative_squared_cross_mark':
-                    self.outMsg = 'OK. Hope you can catch it.'
-                    self.choices = []
-        elif self.mode == 'lecture':
-            if inMsg == 'rewind':
-                self.labot.updateMessage(self.timeStamp, 'previous')
-                return None, []
-            elif inMsg == 'fast_forward':
-                self.labot.updateMessage(self.timeStamp, 'next')
-                return None, []
-            elif inMsg == 'information_source':
-                self.inDetail = not(self.inDetail)
-                attachment = self.lecture_attachment()
-                self.labot.updateMessage(self.timeStamp, self.outMsg, attachment)
-                return None, []
-            elif inMsg == 'printer':
-                self.outMsg = 'Do you want me to print it?'
-                self.choices = ['white_check_mark','negative_squared_cross_mark']
         return self.outMsg, self.choices
-
-    def getBusInfo(self, userAdr, userDir):
-        busQuery = myBusQuery(userAdr, userDir)
-        result = busQuery.getETA()
-        if result is None:
-            message = 'Sorry, unable to retrive time.'
-            attachment = ''
-        else:
-            message = 'Here is the bus info:'
-            bus, busStop, deltaTime = result
-            self.bus = bus
-            self.busStop = busStop
-            stepA = 'Go to '+ busStop.stopName + ' bus stop.'
-            stepB = 'Take ' + bus.busName
-            stepC = 'Arriving in ' + deltaTime
-            steps = stepA + '\n' + stepB + '\n' + stepC
-            attachment = \
-            [
-                {
-                    "text": steps,
-                    "color": "#7CD197",
-                }
-            ]
-        return message, json.dumps(attachment)
 
     def lecture_attachment(self):
         lecture = self.event
@@ -157,28 +70,13 @@ class myTalk(object):
             attachment[0]["image_url"] = lecture.imgLink
         return json.dumps(attachment)
 
-    def takeAction(self, inMsg):
-        if self.mode == 'bus':
-            if self.outMsg == 'Where is your destination?':
-                message, attachment = self.getBusInfo(inMsg, 'fromCodeLab')
-            elif self.outMsg =='Where are you now?':
-                message, attachment = self.getBusInfo(inMsg, 'toCodeLab')
-            self.labot.sendMessage(message, attachment)
-            self.outMsg = message
-            if self.outMsg == 'Here is the bus info:':
-                self.outMsg = 'Do you want me to remind you?'
-                recipt = self.labot.sendMessage(self.outMsg)
-                self.timeStamp = recipt['ts']
-                self.choices = ['white_check_mark','negative_squared_cross_mark']
-                self.labot.addReaction(self.timeStamp, self.choices)
-
 # This class is cited from python-rtmbot project
 class rtmBot(object):
     def __init__(self, token):
         self.last_ping = 0
         self.token = token
-        self.botUserName = 'U0F52JLMV' #labotteam
-        #self.botUserName = 'U0GB1147M' #112labot
+        # self.botUserName = 'U0F52JLMV' #labotteam
+        self.botUserName = 'U0N2650CS' #mars-studio
         self.slack_client = None
 
     def connect(self):
@@ -256,10 +154,6 @@ class myLabot(rtmBot):
         self.attachment = ''
         self.isListening = False
         self.talkHandler = None
-        # self.chatbot = ChatBot("Labot",
-        # io_adapter="chatterbot.adapters.io.NoOutputAdapter")
-        # # Train based on the english corpus
-        # self.chatbot.train("chatterbot.corpus.english")
 
     def start(self):
         self.connect()
@@ -306,25 +200,14 @@ class myLabot(rtmBot):
 
     # ---------------------    Labot behaviour    ----------------------------
 
-    def printInfo(self, text):
-        # print('Printing')
-        printer = Adafruit_Thermal("/dev/ttyAMA0", 19200, timeout=5)
-        printer.upsideDownOn()
-        printer.justify('C')
-        printer.println(text)
-        printer.upsideDownOff()
-        printer.feed(2)
-
     def getMode(self):
         inMsg = self.inMsg.lower()
         mode = ''
         keywords = dict()
         keywords['hi'] = ['hi','hello','what\'s up']
-        keywords['picture'] = ['picture','photo']
-        keywords['lecture'] = ['lecture','event']
-        keywords['bus'] = ['bus','transit']
-        keywords['print'] = ['print','note']
-        keywords['help'] = ['help','what can you do']
+        keywords['picture'] = ['picture','shot']
+        keywords['sensor'] = ['sensors','stats','status']
+        keywords['help'] = ['help']
         for keyword in keywords:
             for word in keywords[keyword]:
                 if word in inMsg:
@@ -343,7 +226,7 @@ class myLabot(rtmBot):
 
     def takeAction(self):
         mode = self.getMode()
-        if (mode == 'hi'):
+        if mode == 'hi':
             self.startConversation(mode)
         elif mode == 'picture':
             try:
@@ -357,24 +240,31 @@ class myLabot(rtmBot):
                 self.sendMessage(outMsg)
             except:
                 self.sendMessage('Camera offline.')
-        elif mode == 'lecture':
-            self.startConversation(mode)
-        elif mode == 'print':
-            try:
-                self.printInfo(self.inMsg.replace('print',''))
-            except:
-                self.sendMessage('Printer offline.')
-        elif mode == 'bus':
-            self.startConversation(mode)
+        elif mode == 'sensor':
+            sensor = mySensors()
+            temperature, humidity, soilMoisture = sensor.getSensorValues()
+            message = 'My stats:'
+            statistic = 'Temperature: ' + str(temperature) + ' C\n'
+            statistic += 'Humidity: ' + str(humidity) + ' %\n'
+            statistic += 'Soil Moisture: ' + str(soilMoisture) + ' \n'
+            attachment = \
+            [
+                {
+                    "title": 'Sensors',
+                    "text": statistic,
+                    "color": "#7CD197",
+                    "mrkdwn_in": ["text"]
+                }
+            ]
+            self.sendMessage(message, json.dumps(attachment))
+            # self.startConversation(mode)
         elif mode == 'help':
             message = 'Here are the things that I can do:'
             instrction = 'Any sentence contains the following keywords will triger the actions.\n'
             instrction += '1. *Hello*:  Greeting conversations with me.\n'
-            instrction += '2. *Lecture*:  Get upcoming lectures information.\n'
-            instrction += '3. *Bus*:  Get bus time between codeLab and your location.\n'
-            instrction += '4. *Picture*:  Take a real-time picture of codeLab.\n'
-            instrction += '5. *Print*:   Print out your notes on a recipt printer.\n'
-            instrction += '6. *Help*:   Display help instrctions.'
+            instrction += '2. *Sensors*:  Get temperature and humidity.\n'
+            instrction += '3. *Picture*:  Take a real-time picture of the plant.\n'
+            instrction += '4. *Help*:   Display help instrctions.'
             attachment = \
             [
                 {

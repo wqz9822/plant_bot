@@ -1,11 +1,10 @@
 import sys
 from labot import myLabot
-from bus import *
 
 # labotteam
-token = 'xoxb-15172632743-gLamDlvhW2B9FbkSIzmzmr9x'
-#112labot
-#token = 'xoxb-16375038259-HvgL1l7nw4TEGnDmsvUqhAlA'
+# token = 'xoxb-15172632743-gLamDlvhW2B9FbkSIzmzmr9x'
+
+token = 'xoxb-22074170434-gwN94TD4BeKiwq5l2Y51BHjL'
 
 def main_loop():
     try:
