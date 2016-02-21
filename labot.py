@@ -16,9 +16,6 @@ class myTalk(object):
         if self.mode == 'hi':
             self.outMsg = 'How are you feeling today?'
             self.choices = ['simple_smile','neutral_face']
-        elif self.mode == 'sensor':
-            self.outMsg = 'Please select:\n1. Go from codeLab\n2. Come to codeLab'
-            self.choices = ['one','two']
         return self.outMsg, self.choices
 
     def continueTalk(self, inMsg):
@@ -75,6 +72,7 @@ class rtmBot(object):
     def __init__(self, token):
         self.last_ping = 0
         self.token = token
+        # Exclude self from the message processing
         # self.botUserName = 'U0F52JLMV' #labotteam
         self.botUserName = 'U0N2650CS' #mars-studio
         self.slack_client = None
