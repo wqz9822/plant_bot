@@ -6,10 +6,9 @@ from sensors import mySensors
 from slackclient import SlackClient
 
 class myTalk(object):
-    def __init__(self, mode, user, labot):
+    def __init__(self, mode, user):
         self.mode = mode
         self.user = user
-        # self.labot = labot
         self.inDetail = False
 
     def startTalk(self):
@@ -72,9 +71,6 @@ class rtmBot(object):
     def __init__(self, token):
         self.last_ping = 0
         self.token = token
-        # Exclude self from the message processing
-        # self.botUserName = 'U0F52JLMV' #labotteam
-        self.botUserName = 'U0N2650CS' #mars-studio
         self.slack_client = None
 
     def connect(self):
@@ -103,6 +99,7 @@ class rtmBot(object):
 
     # This function is called every time there is a new incomming msg
     def process_message(self, data):
+        # Toggle this line to debug
         # print(data)
         # Message must contains the user
         if 'user' not in data: return
@@ -145,6 +142,7 @@ class myLabot(rtmBot):
 
     def __init__(self, token):
         super().__init__(token)
+        self.token = token
         self.channel = ''
         self.inMsg = ''
         self.mode = ''
@@ -155,6 +153,8 @@ class myLabot(rtmBot):
 
     def start(self):
         self.connect()
+        # Exclude self from the message processing
+        self.botUserName = self.getBotUserName(self.token)
         while True:
             for reply in self.slack_client.rtm_read():
                 self.input(reply)
@@ -163,6 +163,11 @@ class myLabot(rtmBot):
 
     # ------------------------  Slack API Wrapper  ---------------------------
 
+    def getBotUserName(self, token):
+        recipt = self.slack_client.api_call("auth.test", token=self.token)
+        recipt = json.loads(recipt.decode('utf-8'))
+        return recipt['user_id']
+    
     def sendMessage(self, outMsg, attachment = ''):
         if type(outMsg) is list:
             if len(outMsg) == 2:
@@ -204,7 +209,7 @@ class myLabot(rtmBot):
         keywords = dict()
         keywords['hi'] = ['hi','hello','what\'s up']
         keywords['picture'] = ['picture','shot']
-        keywords['sensor'] = ['sensors','stats','status']
+        keywords['sensor'] = ['sensor','status','stats']
         keywords['help'] = ['help']
         for keyword in keywords:
             for word in keywords[keyword]:
@@ -213,7 +218,7 @@ class myLabot(rtmBot):
         return mode
 
     def startConversation(self, mode):
-        talkHandler = myTalk(mode, self.user, self)
+        talkHandler = myTalk(mode, self.user)
         outMsg, choices = talkHandler.startTalk()
         recipt = self.sendMessage(outMsg)
         timeStamp = recipt['ts']
@@ -241,14 +246,14 @@ class myLabot(rtmBot):
         elif mode == 'sensor':
             sensor = mySensors()
             temperature, humidity, soilMoisture = sensor.getSensorValues()
-            message = 'My stats:'
+            message = 'Here is my status:'
             statistic = 'Temperature: ' + str(temperature) + ' C\n'
             statistic += 'Humidity: ' + str(humidity) + ' %\n'
             statistic += 'Soil Moisture: ' + str(soilMoisture) + ' \n'
             attachment = \
             [
                 {
-                    "title": 'Sensors',
+                    "title": 'Vitals',
                     "text": statistic,
                     "color": "#7CD197",
                     "mrkdwn_in": ["text"]
